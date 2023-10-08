@@ -1,0 +1,108 @@
+import os
+import numpy as np
+import caer
+import canaro
+import numpy
+import cv2 as cv
+import matplotlib.pyplot as plt
+import gc
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import LearningRateScheduler
+
+
+IMG_SIZE = (80,80)
+channels = 1   #since we do not require colour so we are using 1
+char_path =r'D:\Users\HP\VS code\open_cv\Simpsons Dataset\simpsons_dataset'
+
+char_dict = {}
+for char in os.listdir(char_path):
+    char_dict[char] = len(os.listdir(os.path.join(char_path, char)))
+
+# Sort in descending order
+char_dict = caer.sort_dict(char_dict, descending = True)
+# print(f'{char_dict}')
+
+# Now we will grab the names of first 10 elements in the dictionary and store it in a characters list
+characters = []
+count = 0
+for i in char_dict:
+    characters.append(i[0])
+    count +=1
+    if count>=10:
+        break
+
+# print(f'{characters}')
+
+# It will go through every folder under char_path and look at every element inside characters
+train = caer.preprocess_from_dir(char_path, characters, channels=channels, IMG_SIZE=IMG_SIZE, isShuffle=True)
+
+
+print(f'Images in training set:{len(train)}')
+
+
+plt.figure(figsize=(30,30))
+plt.imshow(train[0][0], cmap = 'gray')
+plt.show()
+# opencv does no tdisplay in jupyter notebook so we are using matplotlib
+
+featureSet, labels = caer.sep_train(train, IMG_SIZE=IMG_SIZE)
+
+# Normalize the feature set  to the range of 0,1 ----> if we normalize the data then network will be to learn 
+# the features much faster
+
+featureSet = caer.normalize(featureSet)
+labels = to_categorical(labels, len(characters))
+# Convert the labels form int to binary class vector
+print("Creating training set")
+# Create training and validation data
+x_train, x_val, y_train, y_val = caer.train_val_split(featureSet, labels, val_ratio=0.2)
+
+# deleting useless things which we will not be using now
+del train
+del featureSet
+del labels
+gc.collect()
+
+# Image data generator
+print("Entered Image Data Generator")
+BATCH_SIZE = 32
+EPOCHS = 10
+datagen = canaro.generators.imageDataGenerator()
+train_gen = datagen.flow(x_train, y_train, batch_size= BATCH_SIZE)
+
+# Create a model
+print(f'Creating model')
+model = canaro.models.createSimpsonsModel(IMG_SIZE=IMG_SIZE, channels= channels, output_dim=len(characters), 
+                                        loss='binary_crossentropy', learning_rate= 0.01, 
+                                        momentum=0.9, nesterov=True)
+
+model.summary()
+# We are using keras as functional API
+
+callbacks_list = [LearningRateScheduler(canaro.lr_schedule)]
+
+training = model.fit(train_gen,
+                     steps_per_epoch = len(x_train)//BATCH_SIZE,
+                     epochs = EPOCHS,
+                     validation_data = (x_val,y_val)//BATCH_SIZE,
+                     callbacks = callbacks_list)
+
+
+# using opencv to test our model
+
+test_path = r'D:\Users\HP\VS code\open_cv\Simpsons Dataset\kaggle_simpson_testset\kaggle_simpson_testset\abraham_grampa_simpson_2.jpg'
+img = cv.imread(test_path)
+def prepare(img):
+       img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+       img = cv.resize(img, IMG_SIZE)
+       img = caer.reshape(img, IMG_SIZE, 1)
+       return img
+
+predictions = model.predict(prepare(img))
+print(characters[np.argmax(predictions[0])])
+
+
+
+
+
+
