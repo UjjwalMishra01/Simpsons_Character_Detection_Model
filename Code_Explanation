@@ -1,0 +1,109 @@
+                           Step by Step Explanation of the code is provided below. You can refer it for any kind of doubt or to solve any error.
+
+import os
+import numpy as np
+import caer
+import canaro
+import numpy
+import cv2 as cv
+import matplotlib.pyplot as plt
+import gc
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import LearningRateScheduler
+Explanation: Import necessary libraries, including os for filesystem operations, numpy for numerical operations, caer for computer vision tasks, canaro for image preprocessing, 
+             cv2 for OpenCV, matplotlib for plotting, gc for garbage collection, and TensorFlow/Keras libraries for deep learning.
+
+Code:
+IMG_SIZE = (80, 80)
+channels = 1
+char_path = r'D:\Users\HP\VS code\open_cv\Simpsons Dataset\simpsons_dataset'
+Explanation: Define constants: IMG_SIZE for the target image size, channels for the number of color channels (1 for grayscale), and char_path for the path to the dataset.
+
+Code:
+char_dict = {}
+for char in os.listdir(char_path):
+    char_dict[char] = len(os.listdir(os.path.join(char_path, char)))
+Explaination: Create an empty dictionary char_dict to store character names as keys and the number of images for each character as values. Iterate through the characters' directories and 
+populate char_dict.
+
+Code:
+char_dict = caer.sort_dict(char_dict, descending=True)
+characters = []
+count = 0
+for i in char_dict:
+    characters.append(i[0])
+    count += 1
+    if count >= 10:
+        break
+Expanation: Sort char_dict in descending order based on the number of images for each character. Create an empty list characters to store the names of the top 10 characters 
+            with the most images. Iterate through char_dict and add character names to characters.
+
+Code:
+train = caer.preprocess_from_dir(
+    char_path, characters, channels=channels, IMG_SIZE=IMG_SIZE, isShuffle=True)
+plt.figure(figsize=(30, 30))
+plt.imshow(train[0][0], cmap='gray')
+plt.show()
+Explaination: Use caer.preprocess_from_dir to load and preprocess images from the dataset directory specified by char_path. It loads images for the top characters, 
+              resizes them to IMG_SIZE, and shuffles them.Display an example image from the training dataset using matplotlib.
+
+Code:
+featureSet, labels = caer.sep_train(train, IMG_SIZE=IMG_SIZE)
+featureSet = caer.normalize(featureSet)
+labels = to_categorical(labels, len(characters))
+Explanation: Use caer.sep_train to separate the feature set (images) and labels (character labels) from the train dataset. Normalize the pixel values in the feature set to the 
+            range [0, 1] for better trainingConvert the integer labels to binary class vectors using one-hot encoding.
+
+Code:
+x_train, x_val, y_train, y_val = caer.train_val_split(
+    featureSet, labels, val_ratio=0.2)
+gc.collect()
+BATCH_SIZE = 32
+EPOCHS = 10
+datagen = canaro.generators.imageDataGenerator()
+train_gen = datagen.flow(x_train, y_train, batch_size=BATCH_SIZE)
+Explanation: Split the feature set and labels into training and validation sets using caer.train_val_split.Perform garbage collection to free up memory.
+            Define the batch size and number of epochs for training. Create an image data generator using canaro.generators.imageDataGenerator() and set up a generator for 
+            training data (train_gen).
+
+Code:
+model = canaro.models.createSimpsonsModel(
+    IMG_SIZE=IMG_SIZE, channels=channels, output_dim=len(characters),
+    loss='binary_crossentropy', learning_rate=0.01,
+    momentum=0.9, nesterov=True)
+Explanation: Create a deep learning model using canaro.models.createSimpsonsModel. This model is specifically designed for your Simpsons dataset and is configured with 
+             various parameters.
+
+Code:
+callbacks_list = [LearningRateScheduler(canaro.lr_schedule)]
+training = model.fit(
+    train_gen,
+    steps_per_epoch=len(x_train)//BATCH_SIZE,
+    epochs=EPOCHS,
+    validation_data=(x_val, y_val),
+    callbacks=callbacks_list)
+Explanation: Define a list of callbacks, including a learning rate scheduler based on canaro.lr_schedule. Train the model using model.fit, specifying the training generator,
+            steps per epoch, number of epochs, validation data, and callbacks.
+
+Code:
+test_path = r'D:\Users\HP\VS code\open_cv\Simpsons Dataset\kaggle_simpson_testset\kaggle_simpson_testset\abraham_grampa_simpson_2.jpg'
+img = cv.imread(test_path)
+Explanation: Load an image from a test file using OpenCV. Here in my code i had specified the place where i had kept my dataset. You need to specify your own path.
+
+Code:
+def prepare(img):
+    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    img = cv.resize(img, IMG_SIZE)
+    img = caer.reshape(img, IMG_SIZE, 1)
+    return img
+Explanation: Define a prepare function to preprocess the test image similarly to the training images: convert to grayscale, resize to IMG_SIZE, and reshape.
+
+
+
+Code:
+predictions = model.predict(prepare(img))
+print(characters[np.argmax(predictions[0])])
+Explanation: Use the trained model to make predictions on the test image and print the predicted character's name.
+
+
+************************************************************************  Thank You for Reading!! **********************************************************************************************************
