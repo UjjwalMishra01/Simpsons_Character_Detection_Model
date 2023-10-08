@@ -5,5 +5,4 @@ Feel free to comment your view and follow for more of such content.
 
 Link for the dataset: https://www.kaggle.com/datasets/alexattia/the-simpsons-characters-dataset/data
 
-Happy to connect
-Linked: https://www.linkedin.com/in/ujjwal-mishra-775856248
+Happy to connect: https://www.linkedin.com/in/ujjwal-mishra-775856248
